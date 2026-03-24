@@ -12,11 +12,33 @@ from app.services.job_service import enqueue_job, execute_job
 
 router = APIRouter()
 
-# Mock AI triage function for now
-def mock_ai_triage(db: Session, payload: dict):
-    import time
-    time.sleep(1) # Fake delay
-    pass # Real AI processing will happen here in Component 8
+# AI triage function
+def ai_triage(db: Session, payload: dict):
+    from app.services.ai_service import classify_ticket_with_gemini
+    ticket_id = payload.get("ticket_id")
+    if not ticket_id:
+        return
+
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        return
+
+    result = classify_ticket_with_gemini(ticket.subject, ticket.description or "")
+    if result:
+        # 1. Update Priority if AI classification was successful
+        ticket.priority = result.priority.lower()
+
+        # 2. Add an AuditLog explaining the AI logic
+        audit = AuditLog(
+            event_type="ai_triage_complete",
+            entity_type="ticket",
+            entity_id=ticket.id,
+            workspace_id=ticket.workspace_id,
+            actor_user_id=ticket.created_by_user_id,
+            detail=f"[AI Classification] Sentiment: {result.sentiment}. Summary: {result.summary}",
+        )
+        db.add(audit)
+        db.commit()
 
 @router.post("/{workspace_id}/ingest", response_model=TicketIngestResponse, status_code=status.HTTP_201_CREATED)
 def ingest_ticket(
@@ -103,6 +125,6 @@ def ingest_ticket(
     engine_bind = db.get_bind()
     factory = sessionmaker(autocommit=False, autoflush=False, bind=engine_bind)
     
-    background_tasks.add_task(execute_job, factory, job.id, mock_ai_triage)
+    background_tasks.add_task(execute_job, factory, job.id, ai_triage)
     
     return TicketIngestResponse(ticket=ticket, job_id=job.id)
