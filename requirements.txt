@@ -7,3 +7,4 @@ pytest
 httpx
 ruff
 google-generativeai
+pgvector

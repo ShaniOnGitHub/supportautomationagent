@@ -36,3 +36,6 @@ class Ticket(Base):
     workspace_id = Column(Integer, ForeignKey("workspaces.id"), nullable=False)
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     assigned_to_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    suggested_reply = Column(Text, nullable=True)
+    # Statuses: pending, approved, rejected
+    suggested_reply_status = Column(String, nullable=True)

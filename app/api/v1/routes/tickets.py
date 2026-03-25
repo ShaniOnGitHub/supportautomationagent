@@ -57,3 +57,52 @@ def update_ticket(
     return ticket_service.update_ticket(
         db, workspace_id, ticket_id, current_user.id, update
     )
+
+
+@router.post("/{ticket_id}/suggested-reply", response_model=TicketResponse)
+def request_suggested_reply(
+    workspace_id: int,
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    Trigger AI generation of a suggested reply for the given ticket.
+    Persists the result on the ticket and writes an audit log entry.
+    Returns the updated ticket (with suggested_reply populated).
+    """
+    return ticket_service.create_suggested_reply(
+        db, workspace_id, ticket_id, current_user.id
+    )
+
+
+@router.post("/{ticket_id}/approve-reply", response_model=TicketResponse)
+def approve_suggested_reply(
+    workspace_id: int,
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    Approve the current suggested reply.
+    This creates a message on the ticket and marks the suggestion as approved.
+    """
+    return ticket_service.approve_suggested_reply(
+        db, workspace_id, ticket_id, current_user.id
+    )
+
+
+@router.post("/{ticket_id}/reject-reply", response_model=TicketResponse)
+def reject_suggested_reply(
+    workspace_id: int,
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    Reject the current suggested reply.
+    This marks the suggestion as rejected.
+    """
+    return ticket_service.reject_suggested_reply(
+        db, workspace_id, ticket_id, current_user.id
+    )

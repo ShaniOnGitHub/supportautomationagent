@@ -34,6 +34,8 @@ class TicketResponse(TicketBase):
     workspace_id: int
     created_by_user_id: int
     assigned_to_user_id: Optional[int] = None
+    suggested_reply: Optional[str] = None
+    suggested_reply_status: Optional[str] = None
 
     class Config:
         from_attributes = True
