@@ -1,4 +1,5 @@
 import google.generativeai as genai
+import datetime
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from app.core.config import settings
@@ -19,6 +20,10 @@ class TriageResult(BaseModel):
         ..., 
         description="A concise 1-sentence summary of the core issue"
     )
+
+def _log_error(msg: str):
+    with open("error_log.txt", "a") as f:
+        f.write(f"{datetime.datetime.now()}: {msg}\n")
 
 def classify_ticket_with_gemini(subject: str, body: str) -> TriageResult | None:
     """
@@ -60,7 +65,7 @@ def classify_ticket_with_gemini(subject: str, body: str) -> TriageResult | None:
             return None
 
     except Exception as e:
-        print(f"AI Triage Error: {e}")
+        _log_error(f"AI Triage Error: {e}")
         return None
 
 
@@ -108,7 +113,7 @@ Customer message: {description or 'No description provided.'}
         return None
 
     except Exception as e:
-        print(f"AI Suggestion Error: {e}")
+        _log_error(f"AI Suggestion Error: {e}")
         return None
 
 
@@ -134,7 +139,7 @@ def generate_embeddings(text: str, task_type: str = "retrieval_document") -> lis
         return None
 
     except Exception as e:
-        print(f"AI Embedding Error: {e}")
+        _log_error(f"AI Embedding Error: {e}")
         return None
 
 class ProposedAction(BaseModel):
@@ -159,17 +164,17 @@ def propose_actions_for_ticket(subject: str, body: str) -> List[ProposedAction]:
         prompt = f"""
         Analyze the following ticket and return a JSON object with a list of utility tool actions.
         Available tools:
-        - check_order_status: parameters: {'order_id': '...'}
-        - check_refund_status: parameters: {'order_id': '...'}
+        - check_order_status: parameters: {{"order_id": "..."}}
+        - check_refund_status: parameters: {{"order_id": "..."}}
 
-        If 'order_id' or an order number is mentioned (e.g. #555), you MUST propose 'check_order_status'.
+        If 'order_id' or an order number is mentioned (e.g. #555, order_id: 555), you MUST propose 'check_order_status'.
         
         Ticket:
         Subject: {subject}
         Body: {body}
         
         Return JSON in this EXACT format:
-        {{ "actions": [ {{ "tool_name": "...", "parameters": {{ "order_id": "..." }} }} ] }}
+        {{"actions": [{{"tool_name": "check_order_status", "parameters": {{"order_id": "555"}}}}]}}
         """
 
         print(f"AI Proposing Actions for Ticket: {subject}")
@@ -198,5 +203,5 @@ def propose_actions_for_ticket(subject: str, body: str) -> List[ProposedAction]:
             return []
 
     except Exception as e:
-        print(f"AI Tool Proposal Error: {e}")
+        _log_error(f"AI Tool Proposal Error: {e}")
         return []
