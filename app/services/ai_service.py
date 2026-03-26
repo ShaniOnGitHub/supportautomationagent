@@ -1,5 +1,6 @@
 import google.generativeai as genai
 import datetime
+import time
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from app.core.config import settings
@@ -69,6 +70,20 @@ def classify_ticket_with_gemini(subject: str, body: str) -> TriageResult | None:
         return None
 
 
+def _call_with_retry(fn, retries=3, delay=10):
+    """Calls fn(), retrying on quota/rate-limit errors."""
+    for attempt in range(retries):
+        try:
+            return fn()
+        except Exception as e:
+            err_str = str(e)
+            if "quota" in err_str.lower() or "429" in err_str or "rate" in err_str.lower():
+                _log_error(f"Rate limit hit (attempt {attempt+1}), retrying in {delay}s: {e}")
+                time.sleep(delay)
+            else:
+                raise
+    return None
+
 def generate_suggested_reply(subject: str, description: str, context: str = "") -> str | None:
     """
     Calls Gemini to draft a polite suggested reply for the support agent.
@@ -102,11 +117,11 @@ Do NOT include a subject line. Output only the reply body.
 Subject: {subject}
 Customer message: {description or 'No description provided.'}
 """
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.3,
-            ),
+        response = _call_with_retry(
+            lambda: model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(temperature=0.3)
+            )
         )
         if response and hasattr(response, "text") and response.text:
             return response.text.strip()
@@ -178,11 +193,13 @@ def propose_actions_for_ticket(subject: str, body: str) -> List[ProposedAction]:
         """
 
         print(f"AI Proposing Actions for Ticket: {subject}")
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-                temperature=0.1
+        response = _call_with_retry(
+            lambda: model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    response_mime_type="application/json",
+                    temperature=0.1
+                )
             )
         )
         
