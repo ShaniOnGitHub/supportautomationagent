@@ -190,6 +190,10 @@ def create_suggested_reply(
     relevant_chunks = search_knowledge(db, workspace_id, f"{ticket.subject} {ticket.description or ''}")
     kb_context = "\n---\n".join([chunk.text for chunk in relevant_chunks]) if relevant_chunks else ""
 
+    # Ensure tool actions are proposed if they don't exist yet
+    from app.services.tool_service import get_proposed_actions
+    get_proposed_actions(db, workspace_id, ticket_id, user_id)
+
     # Tool Actions: Fetch successful results
     from app.models.tool_action import ToolAction
     tool_actions = db.query(ToolAction).filter(

@@ -96,18 +96,34 @@ def propose_actions_for_ticket(subject: str, body: str) -> List[ProposedAction]:
     client = _get_client()
     if not client: return []
     try:
-        prompt = f"Available tools: check_order_status, check_refund_status. If order_id exists, propose check_order_status. Ticket: {subject} - {body}"
+        prompt = f"""
+        Analyze the following ticket and return a JSON object with a list of utility tool actions.
+        Available tools:
+        - check_order_status: parameters: {{"order_id": "..."}}
+        - check_refund_status: parameters: {{"order_id": "..."}}
+
+        If 'order_id' or an order number is mentioned (e.g. #555, order_id: 555), you MUST propose 'check_order_status'.
+        
+        Ticket:
+        Subject: {subject}
+        Body: {body}
+        
+        Return JSON in this EXACT format:
+        {{"actions": [{{"tool_name": "check_order_status", "parameters": {{"order_id": "555"}}}}]}}
+        """
         response = _call_with_retry(lambda: client.models.generate_content(
             model="gemini-1.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=ProposedActionsList,
                 temperature=0.1
             )
         ))
-        if response and response.parsed:
-            return response.parsed.actions
+        if response and response.text:
+            import json
+            clean_text = response.text.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_text)
+            actions = [ProposedAction(**a) for a in data.get("actions", [])]
+            return actions
         return []
     except Exception as e:
         _log_error(f"AI Tool Proposal Error: {e}")
