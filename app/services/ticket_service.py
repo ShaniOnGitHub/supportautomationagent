@@ -295,8 +295,3 @@ def reject_suggested_reply(db: Session, workspace_id: int, ticket_id: int, user_
     db.commit()
     db.refresh(ticket)
     return ticket
-
-ticket= get_ticket(
-    ticket.suggested_reply = "Hello! I see you are asking about order #555. Let me check that for you."
-ticket.suggested_reply_status = "pending"
-)
